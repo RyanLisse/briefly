@@ -10,9 +10,11 @@ public struct DailyBrief: Codable, Sendable {
     public let health: [String]?
     public let github: [String]?
     public let audioPath: String?
+    public let conversationStats: [ConversationStat]?
 
     public init(date: Date, summary: String? = nil, meetings: [String]? = nil, communications: [String]? = nil,
-                notes: [String]? = nil, health: [String]? = nil, github: [String]? = nil, audioPath: String? = nil) {
+                notes: [String]? = nil, health: [String]? = nil, github: [String]? = nil, audioPath: String? = nil,
+                conversationStats: [ConversationStat]? = nil) {
         self.date = date
         self.summary = summary
         self.meetings = meetings
@@ -21,6 +23,7 @@ public struct DailyBrief: Codable, Sendable {
         self.health = health
         self.github = github
         self.audioPath = audioPath
+        self.conversationStats = conversationStats
     }
 }
 
@@ -34,9 +37,36 @@ public actor BriefService {
     private let githubProvider = GithubProvider()
     private let researchService = ResearchService()
     private let synthesisService = SynthesisService()
+    private let analyticsService = ConversationAnalyticsService()
 
     public init() {}
 
+    /// Generate briefs for today and optionally yesterday
+    /// - Parameters:
+    ///   - date: Date for the main brief
+    ///   - includeYesterday: Whether to also generate yesterday's brief
+    ///   - limit: Maximum items to collect from each source
+    ///   - includeVoice: Whether to generate voice output
+    /// - Returns: Tuple with today's brief and optional yesterday's brief
+    public func generateBriefWithHistory(
+        for date: Date,
+        includeYesterday: Bool = false,
+        limit: Int = 50,
+        includeVoice: Bool = false
+    ) async throws -> (today: DailyBrief, yesterday: DailyBrief?) {
+        let todayBrief = try await generateBrief(for: date, limit: limit, includeVoice: includeVoice)
+        
+        var yesterdayBrief: DailyBrief? = nil
+        if includeYesterday {
+            let calendar = Calendar.current
+            if let yesterdayDate = calendar.date(byAdding: .day, value: -1, to: date) {
+                yesterdayBrief = try await generateBrief(for: yesterdayDate, limit: limit, includeVoice: false)
+            }
+        }
+        
+        return (today: todayBrief, yesterday: yesterdayBrief)
+    }
+    
     public func generateBrief(for date: Date, limit: Int = 50, includeVoice: Bool = false) async throws -> DailyBrief {
         print("📊 Gathering data from all sources in parallel...")
 
@@ -156,6 +186,27 @@ public actor BriefService {
 
             let communications = imessageData + whatsappData + gmailData
             let relevantCommunications = communications.prefix(limit)
+            
+            // Generate conversation analytics
+            var conversationStats: [ConversationStat]? = nil
+            do {
+                print("📊 Analyzing conversation activity...")
+                let imessages = try await imProvider.fetchStructuredMessages(for: date, limit: limit)
+                let whatsappMessages = try await whatsappProvider.fetchStructuredMessages(for: date, limit: limit)
+                
+                let imessageStats = await analyticsService.analyzeMessages(imessages, source: "iMessage")
+                let whatsappStats = await analyticsService.analyzeMessages(whatsappMessages, source: "WhatsApp")
+                
+                let combinedStats = await analyticsService.combineStats([imessageStats, whatsappStats])
+                conversationStats = await analyticsService.topConversations(combinedStats, limit: 10)
+                
+                if conversationStats?.isEmpty == false {
+                    print("✅ Analyzed \(conversationStats?.count ?? 0) conversations")
+                }
+            } catch {
+                print("⚠️ Conversation analytics failed: \(error)")
+                // Continue without analytics - don't fail the entire brief
+            }
 
             return DailyBrief(
                 date: date,
@@ -165,7 +216,8 @@ public actor BriefService {
                 notes: notesData.isEmpty ? nil : notesData,
                 health: healthData.isEmpty ? nil : healthData,
                 github: githubData.isEmpty ? nil : githubData,
-                audioPath: audioPath
+                audioPath: audioPath,
+                conversationStats: conversationStats
             )
         }
     }

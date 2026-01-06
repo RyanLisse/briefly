@@ -60,4 +60,10 @@ public struct IMProvider: Provider {
             return allMessages
         }
     }
+    
+    /// Fetch messages as structured Message objects for analytics
+    public func fetchStructuredMessages(for date: Date, limit: Int) async throws -> [Message] {
+        let jsonStrings = try await fetchMessages(for: date, limit: limit)
+        return MessageParser.parseiMessages(jsonStrings)
+    }
 }
