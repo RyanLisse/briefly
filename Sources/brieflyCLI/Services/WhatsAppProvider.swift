@@ -38,6 +38,3 @@ public struct WhatsAppProvider: Provider {
     }
 }
 
-public enum ProviderError: Error {
-    case notReady(ProviderStatus)
-}
