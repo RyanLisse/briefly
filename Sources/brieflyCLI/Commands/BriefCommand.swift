@@ -90,18 +90,3 @@ struct BriefCommand: AsyncParsableCommand {
         }
     }
 }
-
-extension DateFormatter {
-    static let yyyyMMdd: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
-
-    static let full: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .full
-        formatter.timeStyle = .medium
-        return formatter
-    }()
-}

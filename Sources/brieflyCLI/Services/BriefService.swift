@@ -109,14 +109,24 @@ public struct BriefService {
             throw BriefError.missingAPIKey
         }
 
-        // TODO: Implement ElevenLabs integration
-        // For now, create a placeholder audio file path
+        // ElevenLabs integration
+        let client = ElevenLabsTTSClient(apiKey: apiKey)
+        let request = ElevenLabsTTSRequest(
+            text: textContent,
+            modelId: "eleven_v3",
+            outputFormat: "mp3_44100_128"
+        )
+
+        // Use a Roger-like voice ID or a default one
+        // Note: In a real app, this should probably be configurable
+        let defaultVoiceId = "CwhSssmw9n4pk9p00O7N" // Roger
+
+        let data = try await client.synthesize(voiceId: defaultVoiceId, request: request)
+
         let outputPath = "/tmp/briefly-voice-\(DateFormatter.yyyyMMdd.string(from: date)).mp3"
+        try data.write(to: URL(fileURLWithPath: outputPath))
 
-        // Create a dummy file to indicate voice generation would work
-        try? textContent.write(toFile: outputPath, atomically: true, encoding: .utf8)
-
-        print("⚠️ Voice generation not yet implemented - created placeholder file")
+        print("✅ Voice brief generated at: \(outputPath)")
         return outputPath
     }
 }
