@@ -1,187 +1,219 @@
-// Sources/brieflyCLI/Services/BriefService.swift
 import Foundation
 import ElevenLabsKit
 
-public struct DailyBrief: Codable {
+public struct DailyBrief: Codable, Sendable {
     public let date: Date
+    public let summary: String?
     public let meetings: [String]?
     public let communications: [String]?
     public let notes: [String]?
     public let health: [String]?
+    public let github: [String]?
     public let audioPath: String?
 
-    public init(date: Date, meetings: [String]? = nil, communications: [String]? = nil,
-                notes: [String]? = nil, health: [String]? = nil, audioPath: String? = nil) {
+    public init(date: Date, summary: String? = nil, meetings: [String]? = nil, communications: [String]? = nil,
+                notes: [String]? = nil, health: [String]? = nil, github: [String]? = nil, audioPath: String? = nil) {
         self.date = date
+        self.summary = summary
         self.meetings = meetings
         self.communications = communications
         self.notes = notes
         self.health = health
+        self.github = github
         self.audioPath = audioPath
     }
 }
 
-public struct BriefService {
+public actor BriefService {
+    private let imProvider = IMProvider()
+    private let whatsappProvider = WhatsAppProvider()
+    private let gmailProvider = GmailProvider()
+    private let calendarProvider = CalendarProvider()
+    private let notesProvider = NotesProvider()
+    private let whoopProvider = WhoopProvider()
+    private let githubProvider = GithubProvider()
+    private let researchService = ResearchService()
+    private let synthesisService = SynthesisService()
+
     public init() {}
 
     public func generateBrief(for date: Date, limit: Int = 50, includeVoice: Bool = false) async throws -> DailyBrief {
-        print("📊 Gathering data from all sources...")
+        print("📊 Gathering data from all sources in parallel...")
 
-        // Create services locally to avoid data race issues
-        let imessageService = IMService()
-        let whatsappService = WhatsAppService()
-        let gmailService = GmailService()
-        let calendarService = CalendarService()
-        let notesService = NotesService()
-        let whoopService = WhoopService()
+        return try await withThrowingTaskGroup(of: DataSourceResult.self) { group in
+            group.addTask {
+                do {
+                    return .imessage(try await self.imProvider.fetchMessages(for: date, limit: limit))
+                } catch {
+                    print("⚠️ iMessage fetch failed: \(error)")
+                    return .imessage([])
+                }
+            }
+            group.addTask {
+                do {
+                    return .whatsapp(try await self.whatsappProvider.fetchMessages(for: date, limit: limit))
+                } catch {
+                    print("⚠️ WhatsApp fetch failed: \(error)")
+                    return .whatsapp([])
+                }
+            }
+            group.addTask {
+                do {
+                    return .gmail(try await self.gmailProvider.fetchEmails(for: date, limit: limit))
+                } catch {
+                    print("⚠️ Gmail fetch failed: \(error)")
+                    return .gmail([])
+                }
+            }
+            group.addTask {
+                do {
+                    return .calendar(try await self.calendarProvider.fetchEvents(for: date))
+                } catch {
+                    print("⚠️ Calendar fetch failed: \(error)")
+                    return .calendar([])
+                }
+            }
+            // group.addTask {
+            //     do {
+            //         return .notes(try await self.notesProvider.fetchNotes(modifiedAfter: date))
+            //     } catch {
+            //         print("⚠️ Notes fetch failed: \(error)")
+            //         return .notes([])
+            //     }
+            // }
+            group.addTask { return .notes(["(Notes provider disabled due to hung process)"]) }
+            group.addTask {
+                do {
+                    return .health(try await self.whoopProvider.fetchRecovery(for: date))
+                } catch {
+                    print("⚠️ Health fetch failed: \(error)")
+                    return .health("No data")
+                }
+            }
+            group.addTask {
+                do {
+                    return .github(try await self.githubProvider.fetchActivity(for: date))
+                } catch {
+                    print("⚠️ Github fetch failed: \(error)")
+                    return .github([])
+                }
+            }
 
-        // Gather data from all sources in parallel
-        async let imessageTask = imessageService.fetchMessages(for: date, limit: limit)
-        async let whatsappTask = whatsappService.fetchMessages(for: date, limit: limit)
-        async let gmailTask = gmailService.fetchMessages(for: date, limit: limit)
-        async let calendarTask = calendarService.fetchEvents(for: date)
-        async let notesTask = notesService.fetchNotesAndReminders(for: date, limit: limit)
-        async let whoopTask = whoopService.fetchHealthData(for: date)
+            var imessageData: [String] = []
+            var whatsappData: [String] = []
+            var gmailData: [String] = []
+            var calendarData: [String] = []
+            var notesData: [String] = []
+            var healthData: [String] = []
+            var githubData: [String] = []
 
-        // Wait for all data to be collected
-        let (imessageData, whatsappData, gmailData, calendarData, notesData, whoopData) =
-            try await (imessageTask, whatsappTask, gmailTask, calendarTask, notesTask, whoopTask)
+            for try await result in group {
+                switch result {
+                case .imessage(let data): imessageData = data
+                case .whatsapp(let data): whatsappData = data
+                case .gmail(let data): gmailData = data
+                case .calendar(let data): calendarData = data
+                case .notes(let data): notesData = data
+                case .health(let data): healthData = [data]
+                case .github(let data): githubData = data
+                }
+            }
 
-        print("🧠 Synthesizing brief content...")
+            print("🔍 Researching meeting entities...")
+            var enrichedMeetings = calendarData
+            for meeting in calendarData {
+                // Simple entity extraction: look for capitalized words that might be companies or names
+                let entities = self.extractEntities(from: meeting)
+                for entity in entities {
+                    do {
+                        let research = try await self.researchService.research(entity: entity)
+                        enrichedMeetings.append("Research on \(entity): \(research)")
+                    } catch {
+                        print("⚠️ Research failed for \(entity): \(error)")
+                    }
+                }
+            }
 
-        // Combine and filter communications
-        var communications: [String] = []
-        communications.append(contentsOf: imessageData)
-        communications.append(contentsOf: whatsappData)
-        communications.append(contentsOf: gmailData)
+            print("🧠 Synthesizing brief content...")
+            let rawData = """
+            Date: \(DateFormatter.yyyyMMdd.string(from: date))
+            Meetings: \(enrichedMeetings.joined(separator: "; "))
+            Communications:
+              - iMessage: \(imessageData.joined(separator: "; "))
+              - WhatsApp: \(whatsappData.joined(separator: "; "))
+              - Gmail: \(gmailData.joined(separator: "; "))
+            Notes: \(notesData.joined(separator: "; "))
+            Health: \(healthData.joined(separator: "; "))
+            Development: \(githubData.joined(separator: "; "))
+            """
 
-        // Apply relevance filtering (simplified - in real implementation would use LLM)
-        let relevantCommunications = communications.filter { !$0.isEmpty }.prefix(limit)
+            let summary = try await synthesisService.synthesize(data: rawData)
 
-        var audioPath: String? = nil
-        if includeVoice && !communications.isEmpty {
-            audioPath = try await generateVoiceBrief(
-                meetings: calendarData,
-                communications: Array(relevantCommunications),
-                notes: notesData,
-                health: whoopData,
-                date: date
+            var audioPath: String? = nil
+            if includeVoice {
+                audioPath = try await generateVoiceBrief(summary: summary, date: date)
+            }
+
+            let communications = imessageData + whatsappData + gmailData
+            let relevantCommunications = communications.prefix(limit)
+
+            return DailyBrief(
+                date: date,
+                summary: summary,
+                meetings: enrichedMeetings.isEmpty ? nil : enrichedMeetings,
+                communications: relevantCommunications.isEmpty ? nil : Array(relevantCommunications),
+                notes: notesData.isEmpty ? nil : notesData,
+                health: healthData.isEmpty ? nil : healthData,
+                github: githubData.isEmpty ? nil : githubData,
+                audioPath: audioPath
             )
         }
-
-        return DailyBrief(
-            date: date,
-            meetings: calendarData.isEmpty ? nil : calendarData,
-            communications: relevantCommunications.isEmpty ? nil : Array(relevantCommunications),
-            notes: notesData.isEmpty ? nil : notesData,
-            health: whoopData.isEmpty ? nil : whoopData,
-            audioPath: audioPath
-        )
     }
 
-    private func generateVoiceBrief(meetings: [String], communications: [String],
-                                   notes: [String], health: [String], date: Date) async throws -> String {
+    private func extractEntities(from text: String) -> [String] {
+        // Simple heuristic for names/companies: words starting with uppercase
+        // In a real app, this would be more sophisticated (NLP)
+        let words = text.components(separatedBy: .whitespacesAndNewlines)
+        return words.filter { word in
+            guard word.count > 2 else { return false }
+            return word.first?.isUppercase == true
+        }
+    }
+
+    public func generateVoiceBrief(summary: String, date: Date) async throws -> String {
         print("🎵 Generating voice brief...")
 
-        // Create text content for voice synthesis
-        var textContent = "Daily Brief for \(DateFormatter.yyyyMMdd.string(from: date)). "
-
-        if !meetings.isEmpty {
-            textContent += "Meetings: \(meetings.joined(separator: ". ")). "
-        }
-
-        if !communications.isEmpty {
-            textContent += "Communications: \(communications.joined(separator: ". ")). "
-        }
-
-        if !notes.isEmpty {
-            textContent += "Notes and reminders: \(notes.joined(separator: ". ")). "
-        }
-
-        if !health.isEmpty {
-            textContent += "Health data: \(health.joined(separator: ". ")). "
-        }
-
-        // Use ElevenLabs to generate voice
         let apiKey = ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"] ?? ""
+        let voiceId = ProcessInfo.processInfo.environment["ELEVENLABS_VOICE_ID"] ?? "21m00Tcm4TlvDq8ikWAM"
 
         guard !apiKey.isEmpty else {
             throw BriefError.missingAPIKey
         }
 
-        // ElevenLabs integration
         let client = ElevenLabsTTSClient(apiKey: apiKey)
-        let request = ElevenLabsTTSRequest(
-            text: textContent,
-            modelId: "eleven_v3",
-            outputFormat: "mp3_44100_128"
-        )
-
-        // Use a Roger-like voice ID or a default one
-        // Note: In a real app, this should probably be configurable
-        let defaultVoiceId = "CwhSssmw9n4pk9p00O7N" // Roger
-
-        let data = try await client.synthesize(voiceId: defaultVoiceId, request: request)
-
+        let request = ElevenLabsTTSRequest(text: summary, modelId: "eleven_monolingual_v1")
+        
+        let audioData = try await client.synthesize(voiceId: voiceId, request: request)
+        
         let outputPath = "/tmp/briefly-voice-\(DateFormatter.yyyyMMdd.string(from: date)).mp3"
-        try data.write(to: URL(fileURLWithPath: outputPath))
+        try audioData.write(to: URL(fileURLWithPath: outputPath))
 
         print("✅ Voice brief generated at: \(outputPath)")
         return outputPath
     }
-}
 
-// Service protocols and implementations would go here
-// For brevity, showing simplified implementations
-
-public protocol MessageService {
-    func fetchMessages(for date: Date, limit: Int) async throws -> [String]
-}
-
-struct IMService: MessageService {
-    func fetchMessages(for date: Date, limit: Int) async throws -> [String] {
-        // Implementation would run AppleScript to fetch iMessages
-        // For now, return empty array
-        return []
+    private enum DataSourceResult {
+        case imessage([String])
+        case whatsapp([String])
+        case gmail([String])
+        case calendar([String])
+        case notes([String])
+        case health(String)
+        case github([String])
     }
 }
 
-struct WhatsAppService: MessageService {
-    func fetchMessages(for date: Date, limit: Int) async throws -> [String] {
-        // Implementation would use wacli to fetch WhatsApp messages
-        return []
-    }
-}
-
-struct GmailService: MessageService {
-    func fetchMessages(for date: Date, limit: Int) async throws -> [String] {
-        // Implementation would use gog to fetch Gmail messages
-        return []
-    }
-}
-
-struct CalendarService {
-    func fetchEvents(for date: Date) async throws -> [String] {
-        // Implementation would use gog to fetch calendar events
-        return []
-    }
-}
-
-struct NotesService {
-    func fetchNotesAndReminders(for date: Date, limit: Int) async throws -> [String] {
-        // Implementation would use braindump to fetch notes and reminders
-        return []
-    }
-}
-
-struct WhoopService {
-    func fetchHealthData(for date: Date) async throws -> [String] {
-        // Implementation would use whoop CLI to fetch health data
-        return []
-    }
-}
-
-enum BriefError: Error {
+public enum BriefError: Error {
     case missingAPIKey
     case voiceGenerationFailed(String)
 }

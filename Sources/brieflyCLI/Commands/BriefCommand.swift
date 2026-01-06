@@ -53,8 +53,14 @@ struct BriefCommand: AsyncParsableCommand {
                 print("📝 Daily Brief - \(DateFormatter.yyyyMMdd.string(from: briefingDate))")
                 print("")
 
+                if let summary = brief.summary {
+                    print("## Summary")
+                    print(summary)
+                    print("")
+                }
+
                 if let meetings = brief.meetings, !meetings.isEmpty {
-                    print("## Meetings")
+                    print("## Meetings & Context")
                     meetings.forEach { print("- \($0)") }
                     print("")
                 }
@@ -74,6 +80,12 @@ struct BriefCommand: AsyncParsableCommand {
                 if let health = brief.health, !health.isEmpty {
                     print("## Health & Fitness")
                     health.forEach { print("- \($0)") }
+                    print("")
+                }
+
+                if let github = brief.github, !github.isEmpty {
+                    print("## Development")
+                    github.forEach { print("- \($0)") }
                     print("")
                 }
 

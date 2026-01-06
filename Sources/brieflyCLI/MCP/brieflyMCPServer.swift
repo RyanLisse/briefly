@@ -53,8 +53,6 @@ public actor brieflyMCPServer {
         try await server.start(transport: transport)
     }
 
-
-
     private func handleToolCall(_ params: CallTool.Parameters) async throws -> CallTool.Result {
         switch params.name {
         case "generate_daily_brief":
@@ -73,7 +71,6 @@ public actor brieflyMCPServer {
 
         let date = dateString.flatMap { DateFormatter.yyyyMMdd.date(from: $0) } ?? Date()
 
-        // Create service locally to avoid data race
         let briefService = BriefService()
 
         do {
@@ -81,11 +78,14 @@ public actor brieflyMCPServer {
 
             var content: [Tool.Content] = []
 
-            // Add text summary
             var summary = "## Daily Brief - \(DateFormatter.yyyyMMdd.string(from: date))\n\n"
 
+            if let llmSummary = brief.summary {
+                summary += "### Executive Summary\n\(llmSummary)\n\n"
+            }
+
             if let meetings = brief.meetings, !meetings.isEmpty {
-                summary += "### Meetings\n"
+                summary += "### Meetings & Context\n"
                 meetings.forEach { summary += "- \($0)\n" }
                 summary += "\n"
             }
@@ -108,9 +108,14 @@ public actor brieflyMCPServer {
                 summary += "\n"
             }
 
+            if let github = brief.github, !github.isEmpty {
+                summary += "### Development\n"
+                github.forEach { summary += "- \($0)\n" }
+                summary += "\n"
+            }
+
             content.append(.text(summary))
 
-            // Add audio file info if generated
             if let audioPath = brief.audioPath {
                 content.append(.text("🎵 Voice brief generated: \(audioPath)"))
             }
@@ -126,9 +131,13 @@ public actor brieflyMCPServer {
         guard let text = params.arguments?["text"]?.stringValue else {
             throw MCPError.invalidParams("Missing required 'text' parameter")
         }
-
-        // This would implement voice generation for arbitrary text
-        // For now, return a placeholder response
-        return CallTool.Result(content: [.text("🎵 Voice generation for custom text would be implemented here. Text: \(text.prefix(100))...")])
+        
+        let briefService = BriefService()
+        do {
+            let audioPath = try await briefService.generateVoiceBrief(summary: text, date: Date())
+            return .init(content: [.text("✅ Voice brief generated: \(audioPath)")])
+        } catch {
+            return CallTool.Result(content: [.text("❌ Failed to generate voice brief: \(error.localizedDescription)")])
+        }
     }
 }

@@ -66,3 +66,16 @@ Update `generateBrief` to:
 
 **Step 1: Implementation**
 Update the command to actually attempt `DependencyManager.verifyPresence()` and provide installation instructions for missing tools.
+
+---
+
+### Task 13: Additional Providers (IM, Calendar, Notes, Whoop)
+
+**Files:**
+- Create: `Sources/brieflyCLI/Services/IMProvider.swift`
+- Create: `Sources/brieflyCLI/Services/CalendarProvider.swift`
+- Create: `Sources/brieflyCLI/Services/NotesProvider.swift`
+- Create: `Sources/brieflyCLI/Services/WhoopProvider.swift`
+
+**Step 1: Implementation**
+Implement the remaining providers following the same pattern as WhatsApp and Gmail.

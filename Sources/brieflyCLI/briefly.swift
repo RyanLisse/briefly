@@ -9,6 +9,7 @@ public struct briefly: AsyncParsableCommand {
             BriefCommand.self,
             MCPCommand.self,
             SetupCommand.self,
+            PulseCommand.self,
         ],
         defaultSubcommand: BriefCommand.self
     )

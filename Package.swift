@@ -25,7 +25,8 @@ let package = Package(
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "ElevenLabsKit", package: "ElevenLabsKit"),
             ],
-            path: "Sources/brieflyCLI"
+            path: "Sources/brieflyCLI",
+            exclude: ["AGENTS.md", "MCP/AGENTS.md", "Commands/AGENTS.md", "Services/AGENTS.md"]
         ),
         .executableTarget(
             name: "brieflyExec",
@@ -35,7 +36,8 @@ let package = Package(
         .testTarget(
             name: "brieflyTests",
             dependencies: ["brieflyCLI"],
-            path: "Tests/brieflyTests"
+            path: "Tests/brieflyTests",
+            exclude: ["AGENTS.md"]
         ),
     ],
     swiftLanguageModes: [.v6]

@@ -11,16 +11,15 @@ public struct WhatsAppProvider: Provider {
         let isPresent = await DependencyManager.shared.verifyPresence(of: "wacli")
         guard isPresent else { return .missingDependency }
         
-        // Smoke test: check if authenticated
         do {
-            let output = try await executor.execute("wacli", arguments: ["status"])
-            if output.contains("Logged in") {
+            let output = try await executor.execute("wacli", arguments: ["doctor"])
+            if output.contains("authenticated") || output.contains("OK") || !output.contains("not logged in") {
                 return .ready
             } else {
-                return .unauthenticated(instructions: "Please run 'wacli login' in your terminal.")
+                return .unauthenticated(instructions: "Please run 'wacli auth' in your terminal to authenticate via QR code.")
             }
         } catch {
-            return .unauthenticated(instructions: "Please run 'wacli login' in your terminal.")
+            return .unauthenticated(instructions: "Please run 'wacli auth' in your terminal to authenticate via QR code.")
         }
     }
 
@@ -31,9 +30,11 @@ public struct WhatsAppProvider: Provider {
         }
 
         let dateString = DateFormatter.yyyyMMdd.string(from: date)
-        let output = try await executor.execute("wacli", arguments: ["messages", "--date", dateString, "--limit", "\(limit)", "--json"])
+        let output = try await executor.execute(
+            "wacli",
+            arguments: ["messages", "list", "--after", dateString, "--limit", "\(limit)", "--json"]
+        )
         
-        // Parsing logic would go here. For now, return raw lines as a placeholder
         return output.components(separatedBy: .newlines).filter { !$0.isEmpty }
     }
 }

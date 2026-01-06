@@ -1,18 +1,18 @@
 import Foundation
 
-public struct GmailProvider: Provider {
-    public let id = "gmail"
+public struct CalendarProvider: Provider {
+    public let id = "calendar"
     public let dependencyId = "gog"
     private let executor = ShellExecutor()
 
     public init() {}
 
     public func checkStatus() async throws -> ProviderStatus {
-        let isPresent = await DependencyManager.shared.verifyPresence(of: "gog")
+        let isPresent = await DependencyManager.shared.verifyPresence(of: dependencyId)
         guard isPresent else { return .missingDependency }
         
         do {
-            let output = try await executor.execute("gog", arguments: ["gmail", "labels", "list", "--json"])
+            let output = try await executor.execute(dependencyId, arguments: ["calendar", "calendars", "--json"])
             if !output.contains("unauthenticated") && !output.contains("Error") {
                 return .ready
             } else {
@@ -23,17 +23,26 @@ public struct GmailProvider: Provider {
         }
     }
 
-    public func fetchEmails(for date: Date, limit: Int) async throws -> [String] {
+    public func fetchEvents(for date: Date) async throws -> [String] {
         let status = try await checkStatus()
         guard case .ready = status else {
             throw ProviderError.notReady(status)
         }
 
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        
         let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month, .day], from: date)
-        let gmailDateFormat = String(format: "%04d/%02d/%02d", components.year!, components.month!, components.day!)
-        let query = "after:\(gmailDateFormat)"
-        let output = try await executor.execute("gog", arguments: ["gmail", "search", query, "--max", "\(limit)", "--json"])
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        let fromString = formatter.string(from: startOfDay)
+        let toString = formatter.string(from: endOfDay)
+        
+        let output = try await executor.execute(
+            dependencyId,
+            arguments: ["calendar", "events", "--from", fromString, "--to", toString, "--all", "--json"]
+        )
         
         return output.components(separatedBy: .newlines).filter { !$0.isEmpty }
     }
