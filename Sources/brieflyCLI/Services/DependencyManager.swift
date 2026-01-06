@@ -14,4 +14,15 @@ public actor DependencyManager {
         Dependency(id: "wacli", binaryName: "wacli", installCommand: "brew install wacli", description: "WhatsApp CLI"),
         Dependency(id: "gog", binaryName: "gog", installCommand: "go install github.com/st-pete/gog@latest", description: "Google Services CLI")
     ]
+
+    private let executor = ShellExecutor()
+
+    public func verifyPresence(of binaryName: String) async -> Bool {
+        do {
+            let result = try await executor.execute("which", arguments: [binaryName])
+            return !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        } catch {
+            return false
+        }
+    }
 }
