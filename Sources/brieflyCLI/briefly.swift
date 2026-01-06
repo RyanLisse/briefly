@@ -1,4 +1,3 @@
-// Sources/brieflyCLI/briefly.swift
 import ArgumentParser
 
 public struct briefly: AsyncParsableCommand {
@@ -9,6 +8,7 @@ public struct briefly: AsyncParsableCommand {
         subcommands: [
             BriefCommand.self,
             MCPCommand.self,
+            SetupCommand.self,
         ],
         defaultSubcommand: BriefCommand.self
     )
