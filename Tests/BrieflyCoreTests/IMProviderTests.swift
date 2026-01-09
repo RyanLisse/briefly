@@ -1,5 +1,5 @@
 import XCTest
-@testable import brieflyCLI
+@testable import BrieflyCore
 
 final class IMProviderTests: XCTestCase {
     func testIMProviderId() {

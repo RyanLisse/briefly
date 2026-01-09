@@ -1,5 +1,5 @@
 import XCTest
-@testable import brieflyCLI
+@testable import BrieflyCore
 
 final class DependencyManagerTests: XCTestCase {
     func testDependencyRegistry() async {

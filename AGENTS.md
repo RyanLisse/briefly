@@ -1,3 +1,5 @@
+READ ~/Developer/agent-scripts/AGENTS.MD BEFORE ANYTHING (skip if missing)
+
 # PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-01-06
