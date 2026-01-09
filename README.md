@@ -1,43 +1,90 @@
-# Briefly
+# Briefly 📋 — Daily briefing CLI + MCP server
 
 ![Briefly Logo](assets/logo.svg)
 
-**Briefly** - Your daily briefing companion that synthesizes information from communication channels, calendar, and health data into concise text summaries with optional voice output.
+[![Swift 6.0](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white&style=flat-square)](https://swift.org/)
+[![macOS 13+](https://img.shields.io/badge/macOS-13+-0078d7?logo=apple&logoColor=white&style=flat-square)](https://www.apple.com/macos/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-ffd60a?style=flat-square)](https://opensource.org/licenses/MIT)
+[![MCP Server](https://img.shields.io/badge/MCP-Server-2ea44f?style=flat-square)](https://modelcontextprotocol.io/)
 
-*Generate comprehensive daily briefings from iMessage, WhatsApp, Gmail, Calendar, Reminders, Notes, and Whoop health data.*
+Your daily briefing companion that synthesizes information from communication channels, calendar, and health data into concise summaries with optional voice output.
 
-## Requirements
+## What you get
 
-- macOS 26+ (Tahoe)
-- Swift 6.2+
-- ElevenLabs API key (for voice generation)
+| Feature | Description |
+|---------|-------------|
+| **Daily Brief** | Comprehensive summary from all data sources |
+| **Voice Output** | ElevenLabs TTS for audio briefings |
+| **Multiple Sources** | iMessage, WhatsApp, Gmail, Calendar, Notes, Whoop |
+| **MCP Server** | All features exposed as MCP tools for AI agents |
 
-## Installation
-
-### From Source
+## Install
 
 ```bash
-git clone https://github.com/steipete/briefly.git
+# Clone and build
+git clone https://github.com/RyanLisse/briefly.git
 cd briefly
 swift build -c release
-cp .build/release/briefly /usr/local/bin/
+
+# Install to PATH
+cp .build/release/briefly /usr/local/bin/briefly
 ```
 
-## CLI Usage
-
-### Generate Daily Brief
+## Quick start
 
 ```bash
-briefly brief                           # Today's brief
-briefly brief --date 2026-01-05         # Specific date
-briefly brief --voice                   # Include voice output
-briefly brief --limit 25                # Limit items per source
-briefly brief --json                    # JSON output
+# Today's brief
+briefly brief
+
+# Specific date
+briefly brief --date 2026-01-09
+
+# With voice output
+briefly brief --voice
+
+# JSON output
+briefly brief --json
+
+# Limit items per source
+briefly brief --limit 25
 ```
 
-### MCP Server Setup
+| Command | Key flags | What it does |
+|---------|-----------|--------------|
+| `brief` | `--date`, `--voice`, `--json`, `--limit` | Generate daily briefing |
+| `pulse` | `--json` | Quick status check |
+| `setup` | - | Check and install dependencies |
+| `mcp serve` | - | Start MCP server |
 
-Add to your Claude Desktop config:
+## Data Sources
+
+| Source | Description |
+|--------|-------------|
+| 📱 **iMessage** | Recent conversations |
+| 💬 **WhatsApp** | Message history |
+| 📧 **Gmail** | Important emails |
+| 📅 **Calendar** | Today's meetings |
+| 📝 **Notes** | Recent notes |
+| 💪 **Whoop** | Health metrics and workouts |
+| 🔍 **Brave Search** | Web research |
+| 🐙 **GitHub** | Activity and notifications |
+
+## MCP Server
+
+Start the MCP server for AI agent integration:
+
+```bash
+briefly mcp serve
+```
+
+### MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `generate_daily_brief` | Generate comprehensive daily briefing |
+| `generate_voice_brief` | Convert text to speech |
+
+### Claude Desktop Config
 
 ```json
 {
@@ -50,31 +97,63 @@ Add to your Claude Desktop config:
 }
 ```
 
-### Available MCP Tools
+## Architecture
 
-| Tool | Description |
-|------|-------------|
-| `generate_daily_brief` | Generate comprehensive daily briefing |
-| `generate_voice_brief` | Convert text to speech |
+Follows the [Peekaboo](https://github.com/steipete/Peekaboo) architecture standard:
 
-## Data Sources
+```
+Sources/
+├── Core/           # BrieflyCore - framework-agnostic library
+│   ├── Models/     # Message, BriefOutput
+│   ├── Providers/  # DataProvider protocol + 8 implementations
+│   └── Services/   # BriefService, SynthesisService, etc.
+├── CLI/            # BrieflyCLI - ArgumentParser commands
+│   └── Commands/   # Brief, Pulse, Setup, MCP
+├── MCP/            # BrieflyMCP - MCP server with handler pattern
+│   └── Handlers/   # ToolHandler
+└── Executable/     # Main entry point
+```
 
-Briefly collects from:
-- 📱 **iMessage** - Recent conversations
-- 💬 **WhatsApp** - Message history
-- 📧 **Gmail** - Important emails
-- 📅 **Calendar** - Today's meetings
-- 📝 **Notes** - Recent notes and reminders
-- 💪 **Whoop** - Health metrics and workouts
+## Requirements
+
+- **macOS 13+** (Ventura or later)
+- **Swift 6.0+** toolchain
+- **ElevenLabs API key** (for voice generation)
 
 ## Configuration
 
-Set your ElevenLabs API key:
+```bash
+# ElevenLabs for voice
+export ELEVENLABS_API_KEY="your-api-key"
+
+# Gmail (optional)
+export GMAIL_CLIENT_ID="your-client-id"
+export GMAIL_CLIENT_SECRET="your-client-secret"
+```
+
+## Development
 
 ```bash
-export ELEVENLABS_API_KEY="your-api-key-here"
+# Build
+swift build
+
+# Run CLI
+swift run briefly --help
+
+# Test
+swift test
+```
+
+### Swift 6 Settings
+
+All targets use strict concurrency:
+
+```swift
+.enableExperimentalFeature("StrictConcurrency")
+.enableUpcomingFeature("ExistentialAny")
+.enableUpcomingFeature("NonisolatedNonsendingByDefault")
 ```
 
 ## License
 
-MIT License
+MIT
