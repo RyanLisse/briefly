@@ -3,3 +3,8 @@
 .DS_Store
 .swiftpm/
 Package.resolved
+.env
+.venv/
+models/
+*.log
+logs/
