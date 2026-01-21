@@ -1,3 +1,52 @@
+# Execution Plan — Local MLX Voice Integration
+
+**Date:** 2026-01-21  
+**Scope:** Complete local-first voice engine integration, CLI/MCP wiring, docs, and verification.
+
+## Goals
+- Local MLX models are default for voice synthesis.
+- Engine selection is configurable via CLI/MCP and environment.
+- Fallback to cloud engine is explicit and observable.
+- Benchmarks and docs are available and reproducible.
+
+## Plan (SPARC + TDD)
+1. **Specification**
+   - Confirm required flags: `--engine`, `--voice-profile`, `--stt-profile`, `--voice-mode`.
+   - Confirm env defaults: `VOICE_ENGINE=local`, `VOICE_PROFILE=normal`, `STT_PROFILE=parakeet`.
+
+2. **Architecture**
+   - Core voice abstraction in `Sources/Core/Voice/`.
+   - Local engine uses MLX server via GabGab or HTTP.
+   - Cloud engine provides ElevenLabs fallback.
+   - Smart Turn hook for voice loop state logging.
+
+3. **Implementation**
+   - Implement `VoiceConfig`, `VoiceEngine`, `MLXVoiceEngine`, `ElevenLabsVoiceEngine`.
+   - Wire `BriefService` to engine resolution and config.
+   - Add CLI and MCP parameter overrides.
+   - Add `briefly voice benchmark`.
+
+4. **Testing**
+   - Unit tests for config parsing and engine selection.
+   - CLI/MCP parameter validation.
+   - Ensure tests run with `swift test`.
+
+5. **Verification**
+   - `swift test`
+   - `make help`
+   - `./scripts/setup.sh --models-only`
+   - Optional: `briefly voice benchmark`
+
+## Risks / Mitigations
+- **MLX server unavailable:** Health check + fallback.
+- **Missing keys:** Clear error messages; env-driven config.
+- **Large models:** Setup script ensures models present.
+
+## Done Criteria
+- Local engine is default and configurable.
+- CLI + MCP support overrides.
+- Benchmark command writes JSON + Markdown.
+- Docs updated and tests passing.
 # Execution Plan: Briefly Local Voice Upgrade & GabGab Integration
 
 **Date:** 2026-01-21
