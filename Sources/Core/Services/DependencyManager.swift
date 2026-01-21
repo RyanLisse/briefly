@@ -16,6 +16,7 @@ public actor DependencyManager {
         Dependency(id: "imsg", binaryName: "imsg", installCommand: "brew install steipete/tap/imsg", description: "iMessage CLI"),
         Dependency(id: "braindump", binaryName: "braindump", installCommand: "cd ~/Developer/Braindump && swift build -c release && cp .build/release/braindump /usr/local/bin/", description: "Notes and Reminders CLI"),
         Dependency(id: "whoopskill", binaryName: "whoopskill", installCommand: "npm install -g whoopskill", description: "Whoop Health CLI"),
+        Dependency(id: "healthsync", binaryName: "healthsync", installCommand: "cd \"/Volumes/Main SSD/Developer/ai-health-sync-ios/macOS/HealthSyncCLI\" && swift build -c release && cp .build/release/healthsync ~/.local/bin/", description: "HealthKit Sync CLI"),
         Dependency(id: "gh", binaryName: "gh", installCommand: "brew install gh", description: "GitHub CLI")
     ]
 

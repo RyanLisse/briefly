@@ -17,6 +17,7 @@ let package = Package(
         .package(url: "https://github.com/modelcontextprotocol/swift-sdk", from: "0.9.0"),
         .package(url: "https://github.com/apple/swift-log", from: "1.6.0"),
         .package(url: "https://github.com/steipete/ElevenLabsKit", from: "0.1.0"),
+        .package(path: "Vendor/GabGab"),
     ],
     targets: [
         // Core library - framework-agnostic, no CLI dependencies
@@ -25,6 +26,7 @@ let package = Package(
             dependencies: [
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "ElevenLabsKit", package: "ElevenLabsKit"),
+                "GabGab",
             ],
             path: "Sources/Core",
             swiftSettings: [

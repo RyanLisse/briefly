@@ -1,5 +1,5 @@
 import XCTest
-@testable import BrieflyCore
+@testable import Core
 
 final class WhoopProviderTests: XCTestCase {
     func testWhoopProviderId() {

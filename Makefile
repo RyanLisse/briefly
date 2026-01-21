@@ -50,11 +50,17 @@ clean-all: clean
 	@echo "$(GREEN)✅ Full clean complete!$(NC)"
 
 # Setup project (install dependencies, download models)
-setup:
+setup: submodules
 	@echo "$(BLUE)🚀 Setting up briefly...$(NC)"
 	@chmod +x scripts/setup.sh
 	@./scripts/setup.sh
 	@echo "$(GREEN)✅ Setup complete!$(NC)"
+
+# Update git submodules
+submodules:
+	@echo "$(BLUE)🔄 Updating submodules...$(NC)"
+	@git submodule update --init --recursive
+	@echo "$(GREEN)✅ Submodules updated!$(NC)"
 
 # Install to system PATH
 install: build

@@ -5,7 +5,7 @@ public actor SynthesisService {
     private let session = URLSession.shared
     
     public init() {
-        self.apiKey = ProcessInfo.processInfo.environment["OPENAI_API_KEY"] ?? ""
+        self.apiKey = ProcessInfo.processInfo.environment["GOOGLE_API_KEY"] ?? ""
     }
     
     public func synthesize(data: String) async throws -> String {
@@ -13,10 +13,9 @@ public actor SynthesisService {
             throw SynthesisError.missingAPIKey
         }
         
-        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
+        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=\(apiKey)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let prompt = """
@@ -26,6 +25,7 @@ public actor SynthesisService {
         2. Meeting preparations (Calendar).
         3. Relevant health metrics (Whoop).
         4. Key notes and reminders.
+        5. Social media updates (X/Twitter, LinkedIn, GitHub).
         
         Raw Data:
         \(data)
@@ -34,25 +34,30 @@ public actor SynthesisService {
         """
         
         let body: [String: Any] = [
-            "model": "gpt-4o",
-            "messages": [
-                ["role": "system", "content": "You are a helpful daily briefing assistant."],
-                ["role": "user", "content": prompt]
+            "contents": [
+                [
+                    "parts": [
+                        ["text": prompt]
+                    ]
+                ]
             ],
-            "temperature": 0.7
+            "generationConfig": [
+                "temperature": 0.7,
+                "maxOutputTokens": 2048
+            ]
         ]
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
-        let (data, response) = try await session.data(for: request)
+        let (responseData, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+            let errorBody = String(data: responseData, encoding: .utf8) ?? "Unknown error"
             throw SynthesisError.apiError(errorBody)
         }
         
-        let result = try JSONDecoder().decode(ChatResponse.self, from: data)
-        return result.choices.first?.message.content ?? ""
+        let result = try JSONDecoder().decode(GeminiResponse.self, from: responseData)
+        return result.candidates.first?.content.parts.first?.text ?? ""
     }
 }
 
@@ -61,12 +66,15 @@ public enum SynthesisError: Error {
     case apiError(String)
 }
 
-private struct ChatResponse: Codable {
-    struct Choice: Codable {
-        struct Message: Codable {
-            let content: String
+private struct GeminiResponse: Codable {
+    struct Candidate: Codable {
+        struct Content: Codable {
+            struct Part: Codable {
+                let text: String
+            }
+            let parts: [Part]
         }
-        let message: Message
+        let content: Content
     }
-    let choices: [Choice]
+    let candidates: [Candidate]
 }

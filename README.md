@@ -76,6 +76,14 @@ make mcp            # Start MCP server
 make help           # Show all available commands
 ```
 
+### Voice Benchmark
+
+```bash
+briefly voice benchmark
+# or
+make models && briefly voice benchmark --engine local --voice-profile premium
+```
+
 | Command | Key flags | What it does |
 |---------|-----------|--------------|
 | `brief` | `--date`, `--voice`, `--json`, `--limit` | Generate daily briefing |
@@ -151,6 +159,8 @@ Sources/
 ## Configuration
 
 Configuration is managed via the `.env` file, which is created automatically during setup.
+
+See `docs/voice-mode-setup.md` for full voice mode details and fallback behavior.
 
 ### Voice Engine Configuration
 

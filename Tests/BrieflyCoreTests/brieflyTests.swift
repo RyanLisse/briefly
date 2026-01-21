@@ -1,6 +1,6 @@
 // Tests/brieflyTests/brieflyTests.swift
 import XCTest
-@testable import BrieflyCore
+@testable import Core
 
 final class brieflyTests: XCTestCase {
     func testDailyBriefCreation() throws {

@@ -1,5 +1,5 @@
 import XCTest
-@testable import BrieflyCore
+@testable import Core
 
 final class ShellExecutorTests: XCTestCase {
     func testShellExecution() async throws {

@@ -11,6 +11,7 @@ public struct briefly: AsyncParsableCommand {
             MCPCommand.self,
             SetupCommand.self,
             PulseCommand.self,
+            VoiceCommand.self,
         ],
         defaultSubcommand: BriefCommand.self
     )

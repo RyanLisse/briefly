@@ -29,13 +29,31 @@ public actor ToolHandler {
         let dateString = params.arguments?["date"]?.stringValue
         let limit = params.arguments?["limit"]?.intValue ?? 50
         let includeVoice = params.arguments?["voice"]?.boolValue ?? false
+        let engineOverride = params.arguments?["engine"]?.stringValue
+        let profileOverride = params.arguments?["voice_profile"]?.stringValue
+        let sttOverride = params.arguments?["stt_profile"]?.stringValue
+        let modeOverride = params.arguments?["voice_mode"]?.stringValue
 
         let date = dateString.flatMap { DateFormatter.yyyyMMdd.date(from: $0) } ?? Date()
 
         let briefService = BriefService()
+        var config = VoiceConfig.fromEnvironment().withOverrides(
+            engine: engineOverride.flatMap { VoiceEngineKind(rawValue: $0.lowercased()) },
+            profile: profileOverride.flatMap { VoiceProfile(rawValue: $0.lowercased()) },
+            sttProfile: sttOverride.flatMap { STTProfile(rawValue: $0.lowercased()) },
+            voiceMode: modeOverride.flatMap { VoiceMode(rawValue: $0.lowercased()) }
+        )
+        if includeVoice || config.voiceMode == .always {
+            config = await VoiceEngineFactory.resolveConfig(config: config)
+        }
 
         do {
-            let brief = try await briefService.generateBrief(for: date, limit: limit, includeVoice: includeVoice)
+            let brief = try await briefService.generateBrief(
+                for: date,
+                limit: limit,
+                includeVoice: includeVoice,
+                voiceConfig: config
+            )
 
             var content: [Tool.Content] = []
 
@@ -94,8 +112,17 @@ public actor ToolHandler {
         }
 
         let briefService = BriefService()
+        let engineOverride = params.arguments?["engine"]?.stringValue
+        let profileOverride = params.arguments?["voice_profile"]?.stringValue
+        var config = VoiceConfig.fromEnvironment().withOverrides(
+            engine: engineOverride.flatMap { VoiceEngineKind(rawValue: $0.lowercased()) },
+            profile: profileOverride.flatMap { VoiceProfile(rawValue: $0.lowercased()) },
+            sttProfile: nil,
+            voiceMode: nil
+        )
+        config = await VoiceEngineFactory.resolveConfig(config: config)
         do {
-            let audioPath = try await briefService.generateVoiceBrief(summary: text, date: Date())
+            let audioPath = try await briefService.generateVoiceBrief(summary: text, date: Date(), voiceConfig: config)
             return .init(content: [.text("✅ Voice brief generated: \(audioPath)")])
         } catch {
             return CallTool.Result(content: [.text("❌ Failed to generate voice brief: \(error.localizedDescription)")])
@@ -112,17 +139,22 @@ extension ToolHandler {
                 "properties": .object([
                     "date": .string("Date for the brief in YYYY-MM-DD format (optional, defaults to today)"),
                     "limit": .string("Maximum items to collect from each source (optional, defaults to 50)"),
-                    "voice": .string("Generate voice output using ElevenLabs (optional, defaults to false)")
+                    "voice": .string("Generate voice output (optional, defaults to false)"),
+                    "engine": .string("Voice engine (local|cloud, optional)"),
+                    "voice_profile": .string("Voice profile (normal|premium, optional)"),
+                    "stt_profile": .string("STT profile (parakeet|whisper, optional)"),
+                    "voice_mode": .string("Voice mode (auto|always|never, optional)")
                 ])
             ])
         ),
         Tool(
             name: "generate_voice_brief",
-            description: "Convert a text brief to voice using ElevenLabs",
+            description: "Convert a text brief to voice using the configured engine",
             inputSchema: .object([
                 "properties": .object([
                     "text": .string("The brief text to convert to speech"),
-                    "voice_id": .string("ElevenLabs voice ID (optional, defaults to Roger)")
+                    "engine": .string("Voice engine (local|cloud, optional)"),
+                    "voice_profile": .string("Voice profile (normal|premium, optional)")
                 ])
             ])
         )

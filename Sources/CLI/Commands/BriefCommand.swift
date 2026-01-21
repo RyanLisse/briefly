@@ -22,8 +22,20 @@ public struct BriefCommand: AsyncParsableCommand {
     @Option(name: .shortAndLong, help: "Date for the brief (YYYY-MM-DD format, defaults to today)")
     var date: String?
 
-    @Flag(name: .shortAndLong, help: "Generate voice output using ElevenLabs")
+    @Flag(name: .shortAndLong, help: "Generate voice output (defaults to local MLX engine)")
     var voice: Bool = false
+
+    @Option(name: .long, help: "Voice engine to use (local|cloud). Defaults to VOICE_ENGINE or local.")
+    var engine: String?
+
+    @Option(name: .long, help: "Voice profile (normal|premium). Defaults to VOICE_PROFILE or normal.")
+    var voiceProfile: String?
+
+    @Option(name: .long, help: "Speech-to-text profile (parakeet|whisper). Defaults to STT_PROFILE or parakeet.")
+    var sttProfile: String?
+
+    @Option(name: .long, help: "Voice mode (auto|always|never). Defaults to VOICE_MODE or auto.")
+    var voiceMode: String?
 
     @Flag(name: .long, help: "Output in JSON format")
     var json: Bool = false
@@ -39,6 +51,10 @@ public struct BriefCommand: AsyncParsableCommand {
     public func run() async throws {
         let briefingDate = date.map { DateFormatter.yyyyMMdd.date(from: $0) ?? Date() } ?? Date()
         let service = BriefService()
+        var config = resolveVoiceConfig()
+        if voice || config.voiceMode == .always {
+            config = await VoiceEngineFactory.resolveConfig(config: config)
+        }
 
         if yesterday {
             print("🤖 Generating daily briefs for \(DateFormatter.yyyyMMdd.string(from: briefingDate)) and yesterday...")
@@ -51,7 +67,8 @@ public struct BriefCommand: AsyncParsableCommand {
                 for: briefingDate,
                 includeYesterday: yesterday,
                 limit: limit,
-                includeVoice: voice
+                includeVoice: voice,
+                voiceConfig: config
             )
 
             if json {
@@ -86,7 +103,7 @@ public struct BriefCommand: AsyncParsableCommand {
                 // Show today's brief
                 print("📝 Daily Brief - \(DateFormatter.yyyyMMdd.string(from: briefingDate))")
                 print("")
-                printBrief(todayBrief, showVoice: voice)
+                printBrief(todayBrief, showVoice: voice || config.voiceMode == .always)
                 
                 print("---")
                 print("*Generated on \(DateFormatter.full.string(from: Date()))*")
@@ -146,5 +163,20 @@ public struct BriefCommand: AsyncParsableCommand {
         if showVoice, let audioPath = brief.audioPath {
             print("🔊 Voice brief generated: \(audioPath)")
         }
+    }
+
+    private func resolveVoiceConfig() -> VoiceConfig {
+        let baseConfig = VoiceConfig.fromEnvironment()
+        let engineOverride = engine.flatMap { VoiceEngineKind(rawValue: $0.lowercased()) }
+        let profileOverride = voiceProfile.flatMap { VoiceProfile(rawValue: $0.lowercased()) }
+        let sttOverride = sttProfile.flatMap { STTProfile(rawValue: $0.lowercased()) }
+        let modeOverride = voiceMode.flatMap { VoiceMode(rawValue: $0.lowercased()) }
+
+        return baseConfig.withOverrides(
+            engine: engineOverride,
+            profile: profileOverride,
+            sttProfile: sttOverride,
+            voiceMode: modeOverride
+        )
     }
 }

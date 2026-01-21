@@ -1,5 +1,4 @@
 import Foundation
-import ElevenLabsKit
 
 public struct DailyBrief: Codable, Sendable {
     public let date: Date
@@ -34,7 +33,11 @@ public actor BriefService {
     private let calendarProvider = CalendarProvider()
     private let notesProvider = NotesProvider()
     private let whoopProvider = WhoopProvider()
+    private let healthKitProvider = HealthKitProvider()
     private let githubProvider = GithubProvider()
+    private let birdProvider = BirdProvider()
+    private let linkedinProvider = LinkedInProvider()
+    private let calyProvider = CalyProvider()
     private let researchService = ResearchService()
     private let synthesisService = SynthesisService()
     private let analyticsService = ConversationAnalyticsService()
@@ -52,22 +55,38 @@ public actor BriefService {
         for date: Date,
         includeYesterday: Bool = false,
         limit: Int = 50,
-        includeVoice: Bool = false
+        includeVoice: Bool = false,
+        voiceConfig: VoiceConfig = .fromEnvironment()
     ) async throws -> (today: DailyBrief, yesterday: DailyBrief?) {
-        let todayBrief = try await generateBrief(for: date, limit: limit, includeVoice: includeVoice)
+        let todayBrief = try await generateBrief(
+            for: date,
+            limit: limit,
+            includeVoice: includeVoice,
+            voiceConfig: voiceConfig
+        )
         
         var yesterdayBrief: DailyBrief? = nil
         if includeYesterday {
             let calendar = Calendar.current
             if let yesterdayDate = calendar.date(byAdding: .day, value: -1, to: date) {
-                yesterdayBrief = try await generateBrief(for: yesterdayDate, limit: limit, includeVoice: false)
+                yesterdayBrief = try await generateBrief(
+                    for: yesterdayDate,
+                    limit: limit,
+                    includeVoice: false,
+                    voiceConfig: voiceConfig
+                )
             }
         }
         
         return (today: todayBrief, yesterday: yesterdayBrief)
     }
     
-    public func generateBrief(for date: Date, limit: Int = 50, includeVoice: Bool = false) async throws -> DailyBrief {
+    public func generateBrief(
+        for date: Date,
+        limit: Int = 50,
+        includeVoice: Bool = false,
+        voiceConfig: VoiceConfig = .fromEnvironment()
+    ) async throws -> DailyBrief {
         print("📊 Gathering data from all sources in parallel...")
 
         return try await withThrowingTaskGroup(of: DataSourceResult.self) { group in
@@ -103,21 +122,30 @@ public actor BriefService {
                     return .calendar([])
                 }
             }
-            // group.addTask {
-            //     do {
-            //         return .notes(try await self.notesProvider.fetchNotes(modifiedAfter: date))
-            //     } catch {
-            //         print("⚠️ Notes fetch failed: \(error)")
-            //         return .notes([])
-            //     }
-            // }
-            group.addTask { return .notes(["(Notes provider disabled due to hung process)"]) }
             group.addTask {
                 do {
-                    return .health(try await self.whoopProvider.fetchRecovery(for: date))
+                    return .notes(try await self.notesProvider.fetchNotes(modifiedAfter: date))
                 } catch {
-                    print("⚠️ Health fetch failed: \(error)")
-                    return .health("No data")
+                    print("⚠️ Notes fetch failed: \(error)")
+                    return .notes([])
+                }
+            }
+            group.addTask {
+                do {
+                    let whoopData = try await self.whoopProvider.fetchRecovery(for: date)
+                    return .health([whoopData])
+                } catch {
+                    print("⚠️ Whoop fetch failed: \(error)")
+                    return .health([])
+                }
+            }
+            group.addTask {
+                do {
+                    let healthKitData = try await self.healthKitProvider.fetchData(for: date)
+                    return .health([healthKitData])
+                } catch {
+                    print("⚠️ HealthKit fetch failed: \(error)")
+                    return .health([])
                 }
             }
             group.addTask {
@@ -128,6 +156,30 @@ public actor BriefService {
                     return .github([])
                 }
             }
+            group.addTask {
+                do {
+                    return .bird(try await self.birdProvider.fetchActivity(for: date, limit: limit))
+                } catch {
+                    print("⚠️ Bird fetch failed: \(error)")
+                    return .bird([])
+                }
+            }
+            group.addTask {
+                do {
+                    return .linkedin(try await self.linkedinProvider.fetchActivity(for: date, limit: limit))
+                } catch {
+                    print("⚠️ LinkedIn fetch failed: \(error)")
+                    return .linkedin([])
+                }
+            }
+            group.addTask {
+                do {
+                    return .caly(try await self.calyProvider.fetchEvents(for: date, limit: limit))
+                } catch {
+                    print("⚠️ Caly fetch failed: \(error)")
+                    return .caly([])
+                }
+            }
 
             var imessageData: [String] = []
             var whatsappData: [String] = []
@@ -136,6 +188,9 @@ public actor BriefService {
             var notesData: [String] = []
             var healthData: [String] = []
             var githubData: [String] = []
+            var birdData: [String] = []
+            var linkedinData: [String] = []
+            var calyData: [String] = []
 
             for try await result in group {
                 switch result {
@@ -144,13 +199,16 @@ public actor BriefService {
                 case .gmail(let data): gmailData = data
                 case .calendar(let data): calendarData = data
                 case .notes(let data): notesData = data
-                case .health(let data): healthData = [data]
+                case .health(let data): healthData.append(contentsOf: data)
                 case .github(let data): githubData = data
+                case .bird(let data): birdData = data
+                case .linkedin(let data): linkedinData = data
+                case .caly(let data): calyData = data
                 }
             }
 
             print("🔍 Researching meeting entities...")
-            var enrichedMeetings = calendarData
+            var enrichedMeetings = calendarData + calyData
             for meeting in calendarData {
                 // Simple entity extraction: look for capitalized words that might be companies or names
                 let entities = self.extractEntities(from: meeting)
@@ -175,13 +233,17 @@ public actor BriefService {
             Notes: \(notesData.joined(separator: "; "))
             Health: \(healthData.joined(separator: "; "))
             Development: \(githubData.joined(separator: "; "))
+            Social:
+              - X/Twitter: \(birdData.joined(separator: "; "))
+              - LinkedIn: \(linkedinData.joined(separator: "; "))
             """
 
             let summary = try await synthesisService.synthesize(data: rawData)
 
+            let shouldGenerateVoice = shouldGenerateVoice(includeVoice: includeVoice, voiceConfig: voiceConfig)
             var audioPath: String? = nil
-            if includeVoice {
-                audioPath = try await generateVoiceBrief(summary: summary, date: date)
+            if shouldGenerateVoice {
+                audioPath = try await generateVoiceBrief(summary: summary, date: date, voiceConfig: voiceConfig)
             }
 
             let communications = imessageData + whatsappData + gmailData
@@ -232,26 +294,36 @@ public actor BriefService {
         }
     }
 
-    public func generateVoiceBrief(summary: String, date: Date) async throws -> String {
+    public func generateVoiceBrief(summary: String, date: Date, voiceConfig: VoiceConfig) async throws -> String {
         print("🎵 Generating voice brief...")
 
-        let apiKey = ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"] ?? ""
-        let voiceId = ProcessInfo.processInfo.environment["ELEVENLABS_VOICE_ID"] ?? "21m00Tcm4TlvDq8ikWAM"
+        let smartTurn = SmartTurnAnalyzer()
+        await smartTurn.waitForTurnCompletion()
 
-        guard !apiKey.isEmpty else {
-            throw BriefError.missingAPIKey
-        }
-
-        let client = ElevenLabsTTSClient(apiKey: apiKey)
-        let request = ElevenLabsTTSRequest(text: summary, modelId: "eleven_monolingual_v1")
-        
-        let audioData = try await client.synthesize(voiceId: voiceId, request: request)
-        
         let outputPath = "/tmp/briefly-voice-\(DateFormatter.yyyyMMdd.string(from: date)).mp3"
-        try audioData.write(to: URL(fileURLWithPath: outputPath))
+        let outputURL = URL(fileURLWithPath: outputPath)
+
+        let engine = await VoiceEngineFactory.resolveEngine(config: voiceConfig)
+        let generation = try await engine.synthesize(text: summary, profile: voiceConfig.profile, outputURL: outputURL)
+
+        FileLogger.appendLine(
+            "voice_engine=\(generation.engine.rawValue) profile=\(generation.profile.rawValue) duration=\(generation.duration)",
+            to: "voice-engine.log"
+        )
 
         print("✅ Voice brief generated at: \(outputPath)")
         return outputPath
+    }
+
+    private func shouldGenerateVoice(includeVoice: Bool, voiceConfig: VoiceConfig) -> Bool {
+        switch voiceConfig.voiceMode {
+        case .always:
+            return true
+        case .never:
+            return false
+        case .auto:
+            return includeVoice
+        }
     }
 
     private enum DataSourceResult {
@@ -260,12 +332,14 @@ public actor BriefService {
         case gmail([String])
         case calendar([String])
         case notes([String])
-        case health(String)
+        case health([String])
         case github([String])
+        case bird([String])
+        case linkedin([String])
+        case caly([String])
     }
 }
 
 public enum BriefError: Error {
-    case missingAPIKey
     case voiceGenerationFailed(String)
 }

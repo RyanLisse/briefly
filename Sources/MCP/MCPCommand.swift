@@ -41,12 +41,17 @@ public struct MCPCommand: AsyncParsableCommand {
             print("   - date: Date for the brief (optional, defaults to today)")
             print("   - limit: Maximum items to collect (optional, defaults to 50)")
             print("   - voice: Generate voice output (optional, defaults to false)")
+            print("   - engine: Voice engine (local|cloud, optional)")
+            print("   - voice_profile: Voice profile (normal|premium, optional)")
+            print("   - stt_profile: STT profile (parakeet|whisper, optional)")
+            print("   - voice_mode: Voice mode (auto|always|never, optional)")
             print("")
             print("🎵 generate_voice_brief")
             print("   Generate only voice output for a given text brief")
             print("   Parameters:")
             print("   - text: The brief text to convert to speech")
-            print("   - voice_id: ElevenLabs voice ID (optional)")
+            print("   - engine: Voice engine (local|cloud, optional)")
+            print("   - voice_profile: Voice profile (normal|premium, optional)")
         }
     }
 }

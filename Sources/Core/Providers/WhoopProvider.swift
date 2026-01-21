@@ -13,7 +13,7 @@ public struct WhoopProvider: Provider {
         
         do {
             let output = try await executor.execute(dependencyId, arguments: ["auth", "status"])
-            if output.contains("authenticated") || output.contains("valid") || !output.contains("not logged in") {
+            if output.contains("\"authenticated\": true") {
                 return .ready
             } else {
                 return .unauthenticated(instructions: "Please run 'whoopskill auth login' in your terminal.")
