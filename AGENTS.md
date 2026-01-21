@@ -58,20 +58,9 @@ READ ~/Developer/agent-scripts/AGENTS.MD BEFORE ANYTHING (skip if missing)
 - **Dependency**: `GabGab` is integrated as a local submodule at `Vendor/GabGab`.
 - **Platform**: Explicitly targets `macOS(.v26)`.
 
-## CONVENTIONS
-- **Swift Version**: 6.2
-- **Concurrency**: Extensive use of `async/await` and `actor` for thread safety and parallel data fetching.
-- **Testing**: Standard `XCTest`. `@testable import brieflyCLI` used for internal testing.
-- **Architecture**: Separation of Concerns: Executable -> Library -> [Commands, Services, MCP].
-
-## ANTI-PATTERNS (THIS PROJECT)
-- **Blocking Code**: Avoid synchronous file I/O or heavy computation on the main thread; use `async` contexts.
-- **Direct implementation in Commands**: Delegate business logic to `Services`, keep `Commands` for parsing/glue.
-
-## NOTES
-- **Mocked Services**: Currently, most services (IM, WhatsApp, Gmail) are implemented as stubs/placeholders returning empty data.
-- **Voice Generation**: Transitioning from ElevenLabs to local MLX models (Kokoro, LFM 2.5). See `MLX_VOICE_UPGRADE.md`.
-- **Platform**: Explicitly targets `macOS(.v26)`.
+## TESTING
+- **Framework**: Standard `XCTest`.
+- **Imports**: `@testable import Core` for core test targets.
 
 ## COMMANDS
 ```bash

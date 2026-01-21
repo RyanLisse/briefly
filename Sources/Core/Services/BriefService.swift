@@ -42,7 +42,34 @@ public actor BriefService {
     private let synthesisService = SynthesisService()
     private let analyticsService = ConversationAnalyticsService()
 
-    public init() {}
+    // Voice engine - defaults to local MLX, can be injected for testing
+    private var voiceEngine: (any VoiceEngine)?
+
+    public init(voiceEngine: (any VoiceEngine)? = nil) {
+        self.voiceEngine = voiceEngine
+    }
+
+    /// Get the current voice engine (creates default if none set)
+    private func getVoiceEngine(config: VoiceConfig) -> any VoiceEngine {
+        if let engine = voiceEngine {
+            return engine
+        }
+
+        // Create engine based on configuration
+        let engine: any VoiceEngine
+        switch config.engine {
+        case .local:
+            engine = MLXVoiceEngine(profile: config.profile)
+        case .cloud:
+            // Fallback to ElevenLabs if no API key
+            let apiKey = ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"] ?? "fallback-key"
+            let voiceId = ProcessInfo.processInfo.environment["ELEVENLABS_VOICE_ID"] ?? "21m00Tcm4TlvDq8ikWAM"
+            engine = ElevenLabsVoiceEngine(apiKey: apiKey, voiceId: voiceId)
+        }
+
+        voiceEngine = engine
+        return engine
+    }
 
     /// Generate briefs for today and optionally yesterday
     /// - Parameters:
@@ -295,24 +322,21 @@ public actor BriefService {
     }
 
     public func generateVoiceBrief(summary: String, date: Date, voiceConfig: VoiceConfig) async throws -> String {
-        print("🎵 Generating voice brief...")
+        // Generate unique filename
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateString = dateFormatter.string(from: date)
+        let filename = "brief-\(dateString)-\(UUID().uuidString.prefix(8)).wav"
+        let outputPath = "/tmp/\(filename)"
 
-        let smartTurn = SmartTurnAnalyzer()
-        await smartTurn.waitForTurnCompletion()
+        print("🎵 Generating voice brief with \(voiceConfig.engine.rawValue) engine...")
 
-        let outputPath = "/tmp/briefly-voice-\(DateFormatter.yyyyMMdd.string(from: date)).mp3"
-        let outputURL = URL(fileURLWithPath: outputPath)
+        // Get voice engine and generate audio
+        let engine = getVoiceEngine(config: voiceConfig)
+        let outputURL = try await engine.synthesize(text: summary, outputPath: outputPath)
 
-        let engine = await VoiceEngineFactory.resolveEngine(config: voiceConfig)
-        let generation = try await engine.synthesize(text: summary, profile: voiceConfig.profile, outputURL: outputURL)
-
-        FileLogger.appendLine(
-            "voice_engine=\(generation.engine.rawValue) profile=\(generation.profile.rawValue) duration=\(generation.duration)",
-            to: "voice-engine.log"
-        )
-
-        print("✅ Voice brief generated at: \(outputPath)")
-        return outputPath
+        print("✅ Voice brief generated: \(outputURL.path)")
+        return outputURL.path
     }
 
     private func shouldGenerateVoice(includeVoice: Bool, voiceConfig: VoiceConfig) -> Bool {
