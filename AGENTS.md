@@ -77,6 +77,41 @@ swift run briefly mcp
 swift test
 ```
 
+## ULTRAWORK MODE
+
+Ultrabrain mode is used for complex multi-step implementations requiring parallel agent coordination and sophisticated reasoning.
+
+### When to Use Ultrawork Mode
+- Complex feature implementations spanning multiple files/modules
+- Architecture decisions requiring trade-off analysis
+- Multi-system integrations (like voice engines)
+- Refactoring that impacts multiple components
+- Performance optimization across layers
+
+### Ultrawork Workflow Used in This Project
+For the voice engine implementation, Ultrawork mode was employed with:
+1. **Parallel Agent Coordination**: Explore and Librarian agents ran concurrently for codebase understanding and external library research
+2. **Sophisticated Reasoning**: Oracle consulted for architecture decisions (VoiceEngine abstraction vs direct implementation)
+3. **Step-by-Step Implementation**: Frontend-UI-UX-Engineer delegated for any visual components (none in this case), while handling logic directly
+4. **Documentation Agent**: Document-writer used for README and plan updates
+5. **Verification**: QATester agent for functionality validation (though not used in this specific implementation)
+
+### Key Principles
+- Use skills proactively when triggers match
+- Delegate specialized work to appropriate agents (visual → frontend-ui-ux-engineer, docs → document-writer)
+- Consult Oracle for complex decisions or when stuck
+- Parallel execution for maximum throughput
+- Always verify results before marking complete
+
+### Agent Selection Criteria
+| Domain | Agent | Reason |
+|--------|-------|--------|
+| Architecture | oracle | High-IQ reasoning for trade-offs |
+| Frontend UI/UX | frontend-ui-ux-engineer | Visual/styling changes only |
+| Documentation | document-writer | README, API docs, guides |
+| Research/Search | explore (internal), librarian (external) | Contextual grep for codebases |
+| Complex Logic | handle directly | Unless specialized domain |
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.

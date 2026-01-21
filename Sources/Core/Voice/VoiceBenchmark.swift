@@ -19,16 +19,16 @@ public enum VoiceBenchmarkRunner {
         let start = Date()
 
         let engine = await VoiceEngineFactory.resolveEngine(config: config)
-        let generation = try await engine.synthesize(text: prompt, profile: config.profile, outputURL: outputURL)
+        _ = try await engine.synthesize(text: prompt, outputPath: outputURL.path)
 
         let usageAfter = ResourceUsage.capture()
         let duration = Date().timeIntervalSince(start)
 
-        let outputSize = (try? Data(contentsOf: generation.outputURL).count) ?? 0
+        let outputSize = (try? Data(contentsOf: outputURL).count) ?? 0
 
         return VoiceBenchmarkResult(
-            engine: generation.engine,
-            profile: generation.profile,
+            engine: config.engine,
+            profile: config.profile,
             textLength: prompt.count,
             durationSeconds: duration,
             outputSizeBytes: outputSize,

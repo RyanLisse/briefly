@@ -1,5 +1,6 @@
 import Foundation
 import ArgumentParser
+import Core
 
 /// Benchmark voice engines performance and quality
 struct BenchmarkCommand: AsyncParsableCommand {
@@ -45,19 +46,18 @@ struct BenchmarkCommand: AsyncParsableCommand {
                 run: run,
                 engine: voiceConfig.engine.rawValue,
                 profile: voiceConfig.profile.rawValue,
-                runs: runs,
-                averageDuration: avgDuration,
-                averageFileSize: avgFileSize,
+                duration: duration,
+                fileSize: fileSize ?? 0,
                 textLength: text.count,
-                results: results
+                outputPath: outputPath
             )
-
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = .prettyPrinted
-            let jsonData = try encoder.encode(summary)
-            print("\n📄 JSON Output:")
-            print(String(data: jsonData, encoding: .utf8)!)
+            results.append(result)
         }
+
+        let totalDuration = results.map { $0.duration }.reduce(0, +)
+        let totalSize = results.map { Double($0.fileSize) }.reduce(0, +)
+        let avgDuration = totalDuration / Double(max(runs, 1))
+        let avgFileSize = totalSize / Double(max(runs, 1))
 
         // Save to logs directory
         let logsDir = "logs"
@@ -72,6 +72,14 @@ struct BenchmarkCommand: AsyncParsableCommand {
             textLength: text.count,
             results: results
         )
+
+        if json {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            let jsonData = try encoder.encode(summary)
+            print("\n📄 JSON Output:")
+            print(String(data: jsonData, encoding: .utf8) ?? "")
+        }
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

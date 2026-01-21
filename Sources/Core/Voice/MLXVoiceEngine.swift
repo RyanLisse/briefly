@@ -69,7 +69,3 @@ public final class MLXVoiceEngine: VoiceEngine {
         }
     }
 }
-
-enum VoiceEngineError: Error {
-    case synthesisFailed(String)
-}
