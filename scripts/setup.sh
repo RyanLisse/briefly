@@ -95,7 +95,7 @@ if [ "$MODELS_ONLY" = false ]; then
     
     # Install required packages for MLX and model downloading
     print_success "Installing Python dependencies..."
-    pip install --quiet mlx mlx-lm huggingface_hub soundfile numpy
+    pip install --quiet mlx mlx-lm mlx-audio huggingface_hub soundfile numpy scipy sounddevice
     
     # Check if huggingface-cli is available, if not install it
     if ! command_exists hf; then
@@ -136,8 +136,8 @@ if [ "$MODELS_ONLY" = false ]; then
         echo "STT_PROFILE=parakeet"
         echo ""
         echo "# Local Model Paths"
-        echo "KOKORO_MODEL_PATH=$(pwd)/models/kokoro-82m"
-        echo "LFM_MODEL_PATH=$(pwd)/models/lfm-2.5-audio"
+        echo "KOKORO_MODEL_PATH=\"$(pwd)/models/kokoro-82m\""
+        echo "LFM_MODEL_PATH=\"$(pwd)/models/lfm-2.5-audio\""
         echo ""
         echo "# Fallback Configuration (ElevenLabs)"
         if [ -n "${ELEVENLABS_API_KEY:-}" ]; then

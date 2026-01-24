@@ -13,6 +13,7 @@ public struct briefly: AsyncParsableCommand {
             SetupCommand.self,
             PulseCommand.self,
             VoiceCommand.self,
+            ScobyExportCommand.self,
         ],
         defaultSubcommand: BriefCommand.self
     )
